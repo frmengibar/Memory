@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memory Game</title>
+    <style>
+        /* styles.css */
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f8ff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        .container {
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        .buttons {
+            margin: 20px 0;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 0 10px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background-color: #ff4500;
+            color: white;
+            transition: background-color 0.3s;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        button:hover:not(:disabled) {
+            background-color: #e03e00;
+        }
+
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(5, 120px);
+            grid-gap: 15px;
+            justify-content: center;
+        }
+
+        .card {
+            width: 120px;
+            height: 80px;
+            background-color: #4682b4;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            position: relative;
+            transition: transform 0.3s;
+        }
+
+        .card.flipped {
+            background-color: #32cd32;
+            cursor: default;
+        }
+
+        .card.matched {
+            background-color: #ff6347;
+            cursor: default;
+        }
+
+        .card span {
+            font-size: 16px;
+            color: white;
+            display: none;
+        }
+
+        .card.flipped span,
+        .card.matched span {
+            display: block;
+        }
+
+        .win-message {
+            margin-top: 20px;
+            font-size: 24px;
+            color: #008000;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Memory Game</h1>
+        <div class="buttons">
+            <button id="start-button">Start</button>
+            <button id="restart-button" disabled>Restart</button>
+        </div>
+        <div id="game-board" class="game-board"></div>
+        <div id="win-message" class="win-message hidden">¡Ganaste!</div>
+    </div>
+
+    <script>
+        // script.js
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const words = [
+                { pair_id: 1, spanish: "Casa", english: "House" },
+                { pair_id: 2, spanish: "Perro", english: "Dog" },
+                { pair_id: 3, spanish: "Gato", english: "Cat" },
+                { pair_id: 4, spanish: "Cielo", english: "Sky" },
+                { pair_id: 5, spanish: "Libro", english: "Book" },
+                { pair_id: 6, spanish: "Amigo", english: "Friend" },
+                { pair_id: 7, spanish: "Escuela", english: "School" },
+                { pair_id: 8, spanish: "Rápido", english: "Fast" },
+                { pair_id: 9, spanish: "Grande", english: "Big" },
+                { pair_id: 10, spanish: "Feliz", english: "Happy" }
+            ];
+
+            const gameBoard = document.getElementById('game-board');
+            const startButton = document.getElementById('start-button');
+            const restartButton = document.getElementById('restart-button');
+            const winMessage = document.getElementById('win-message');
+
+            let cards = [];
+            let firstCard = null;
+            let secondCard = null;
+            let lockBoard = false;
+            let matchedPairs = 0;
+
+            // Función para generar las cartas
+            function generateCards() {
+                // Crear pares de palabras (español e inglés)
+                let pairs = [];
+                words.forEach(word => {
+                    pairs.push({ pair_id: word.pair_id, text: word.spanish });
+                    pairs.push({ pair_id: word.pair_id, text: word.english });
+                });
+
+                // Mezclar las cartas
+                pairs = shuffleArray(pairs);
+
+                // Limpiar el tablero
+                gameBoard.innerHTML = '';
+
+                // Crear elementos de cartas
+                pairs.forEach(pair => {
+                    const card = document.createElement('div');
+                    card.classList.add('card');
+                    card.dataset.pairId = pair.pair_id;
+
+                    const span = document.createElement('span');
+                    span.textContent = pair.text;
+
+                    card.appendChild(span);
+                    gameBoard.appendChild(card);
+
+                    // Agregar evento de clic a la carta
+                    card.addEventListener('click', () => {
+                        if (lockBoard) return;
+                        if (card === firstCard) return;
+                        if (card.classList.contains('flipped') || card.classList.contains('matched')) return;
+
+                        flipCard(card);
+
+                        if (!firstCard) {
+                            firstCard = card;
+                            return;
+                        }
+
+                        secondCard = card;
+                        checkForMatch();
+                    });
+                });
+            }
+
+            // Función para mezclar un array (Fisher-Yates)
+            function shuffleArray(array) {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+                return array;
+            }
+
+            // Función para voltear una carta
+            function flipCard(card) {
+                card.classList.add('flipped');
+            }
+
+            // Función para voltear de nuevo las cartas
+            function unflipCards() {
+                setTimeout(() => {
+                    firstCard.classList.remove('flipped');
+                    secondCard.classList.remove('flipped');
+                    resetTurn();
+                }, 1000);
+            }
+
+            // Función para marcar las cartas como emparejadas
+            function disableCards() {
+                firstCard.classList.add('matched');
+                secondCard.classList.add('matched');
+                matchedPairs++;
+                resetTurn();
+
+                if (matchedPairs === words.length) {
+                    winMessage.classList.remove('hidden');
+                    restartButton.disabled = false;
+                }
+            }
+
+            // Función para verificar si las cartas coinciden
+            function checkForMatch() {
+                const isMatch = firstCard.dataset.pairId === secondCard.dataset.pairId;
+
+                if (isMatch) {
+                    disableCards();
+                } else {
+                    unflipCards();
+                }
+            }
+
+            // Función para reiniciar el turno
+            function resetTurn() {
+                [firstCard, secondCard] = [null, null];
+                lockBoard = false;
+            }
+
+            // Función para iniciar el juego
+            function startGame() {
+                startButton.disabled = true;
+                restartButton.disabled = true;
+                winMessage.classList.add('hidden');
+                matchedPairs = 0;
+                generateCards();
+            }
+
+            // Función para reiniciar el juego
+            function restartGame() {
+                restartButton.disabled = true;
+                winMessage.classList.add('hidden');
+                matchedPairs = 0;
+                generateCards();
+            }
+
+            // Agregar eventos a los botones
+            startButton.addEventListener('click', startGame);
+            restartButton.addEventListener('click', restartGame);
+        });
+    </script>
+</body>
+</html>
